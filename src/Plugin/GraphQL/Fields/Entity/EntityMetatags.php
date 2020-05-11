@@ -2,6 +2,7 @@
 
 namespace Drupal\graphql_metatag\Plugin\GraphQL\Fields\Entity;
 
+use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
@@ -68,11 +69,17 @@ class EntityMetatags extends FieldPluginBase implements ContainerFactoryPluginIn
    */
   protected function resolveValues($value, array $args, ResolveContext $context, ResolveInfo $info) {
     if ($value instanceof ContentEntityInterface) {
-      $tags = $this->metatagManager->tagsFromEntityWithDefaults($value);
-      $elements = $this->metatagManager->generateRawElements($tags, $value);
-
-      foreach ($elements as $element) {
-        yield $element;
+      $tags = metatag_get_tags_from_route($value);
+      // Trigger hook_metatags_attachments_alter().
+      // Allow modules to rendered metatags prior to attaching.
+      \Drupal::service('module_handler')->alter('metatags_attachments', $tags);
+      $tags = NestedArray::getValue($tags, ['#attached', 'html_head']) ?: [];
+      $tags = array_filter($tags, function ($tag) {
+        return is_array($tag) && in_array(NestedArray::getValue($tag, [0, '#tag']), ['meta', 'link']);
+      });
+      $tags = array_map('reset', $tags);
+      foreach ($tags as $tag) {
+        yield $tag;
       }
     }
   }

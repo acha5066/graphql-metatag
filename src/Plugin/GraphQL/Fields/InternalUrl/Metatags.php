@@ -71,8 +71,11 @@ class Metatags extends FieldPluginBase implements ContainerFactoryPluginInterfac
     if ($value instanceof Url) {
       $resolve = $this->subRequestBuffer->add($value, function () {
         $tags = metatag_get_tags_from_route();
+        // Trigger hook_metatags_attachments_alter().
+        // Allow modules to rendered metatags prior to attaching.
+        \Drupal::service('module_handler')->alter('metatags_attachments', $tags);
         $tags = NestedArray::getValue($tags, ['#attached', 'html_head']) ?: [];
-        $tags = array_filter($tags, function($tag) {
+        $tags = array_filter($tags, function ($tag) {
           return is_array($tag) && in_array(NestedArray::getValue($tag, [0, '#tag']), ['meta', 'link']);
         });
 
